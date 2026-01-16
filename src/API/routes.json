@@ -1,0 +1,4 @@
+{
+  "/api/sales/kpi?period=last-6-months": "/records",
+  "/api/analytics/metadata": "/metadata"
+}

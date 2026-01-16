@@ -1,0 +1,199 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    /* Newage Brand Colors */
+    --twilight: 207 32% 20%;
+    --grey-blue: 207 31% 30%;
+    --azure: 195 100% 65%;
+    --lime: 150 100% 42%;
+    --coral: 0 84% 60%;
+
+    /* Semantic tokens */
+    --background: 210 20% 98%;
+    --foreground: 207 32% 20%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 207 32% 20%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 207 32% 20%;
+
+    --primary: 207 32% 20%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 207 31% 30%;
+    --secondary-foreground: 0 0% 100%;
+
+    --muted: 210 20% 96%;
+    --muted-foreground: 207 20% 45%;
+
+    --accent: 195 100% 65%;
+    --accent-foreground: 207 32% 15%;
+
+    --success: 150 100% 42%;
+    --success-foreground: 0 0% 100%;
+
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 210 20% 90%;
+    --input: 210 20% 90%;
+    --ring: 195 100% 65%;
+
+    --radius: 0.5rem;
+
+    /* Chart colors */
+    --chart-1: 195 100% 65%;
+    --chart-2: 150 100% 42%;
+    --chart-3: 207 31% 30%;
+    --chart-4: 207 32% 20%;
+    --chart-5: 30 100% 60%;
+
+    /* Shadows */
+    --shadow-sm: 0 1px 2px 0 hsl(207 32% 20% / 0.05);
+    --shadow-md: 0 4px 6px -1px hsl(207 32% 20% / 0.08),
+      0 2px 4px -2px hsl(207 32% 20% / 0.06);
+    --shadow-lg: 0 10px 15px -3px hsl(207 32% 20% / 0.08),
+      0 4px 6px -4px hsl(207 32% 20% / 0.04);
+
+    --sidebar-background: 207 32% 20%;
+    --sidebar-foreground: 0 0% 98%;
+    --sidebar-primary: 195 100% 65%;
+    --sidebar-primary-foreground: 207 32% 15%;
+    --sidebar-accent: 207 31% 25%;
+    --sidebar-accent-foreground: 0 0% 98%;
+    --sidebar-border: 207 31% 25%;
+    --sidebar-ring: 195 100% 65%;
+  }
+
+  .dark {
+    --background: 207 32% 10%;
+    --foreground: 210 20% 98%;
+
+    --card: 207 32% 15%;
+    --card-foreground: 210 20% 98%;
+
+    --popover: 207 32% 15%;
+    --popover-foreground: 210 20% 98%;
+
+    --primary: 195 100% 65%;
+    --primary-foreground: 207 32% 10%;
+
+    --secondary: 207 31% 25%;
+    --secondary-foreground: 210 20% 98%;
+
+    --muted: 207 31% 20%;
+    --muted-foreground: 210 20% 65%;
+
+    --accent: 195 100% 65%;
+    --accent-foreground: 207 32% 10%;
+
+    --destructive: 0 62% 50%;
+    --destructive-foreground: 210 20% 98%;
+
+    --border: 207 31% 25%;
+    --input: 207 31% 25%;
+    --ring: 195 100% 65%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground font-sans antialiased;
+    font-family: "Roboto", system-ui, sans-serif;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
+    @apply font-bold tracking-tight;
+  }
+}
+
+@layer components {
+  .kpi-tile {
+    @apply bg-card rounded-xl p-5 shadow-sm border border-border/50 transition-all duration-200 hover:shadow-md;
+  }
+
+  .dashboard-card {
+    @apply bg-card rounded-xl p-6 shadow-sm border border-border/50 transition-all duration-200 hover:shadow-lg hover:-translate-y-0.5 cursor-pointer;
+  }
+
+  .chart-container {
+    @apply bg-card rounded-xl p-5 shadow-sm border border-border/50;
+  }
+
+  .filter-chip {
+    @apply inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm bg-muted text-muted-foreground hover:bg-accent/20 hover:text-accent-foreground transition-colors;
+  }
+
+  .trend-positive {
+    @apply text-success;
+  }
+
+  .trend-negative {
+    @apply text-destructive;
+  }
+
+  .trend-neutral {
+    @apply text-muted-foreground;
+  }
+}
+
+@layer utilities {
+  .animate-fade-up {
+    animation: fade-up 0.4s ease-out forwards;
+  }
+
+  .animate-slide-in-right {
+    animation: slide-in-right 0.3s ease-out forwards;
+  }
+
+  @keyframes fade-up {
+    from {
+      opacity: 0;
+      transform: translateY(10px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  @keyframes slide-in-right {
+    from {
+      opacity: 0;
+      transform: translateX(100%);
+    }
+    to {
+      opacity: 1;
+      transform: translateX(0);
+    }
+  }
+
+  .stagger-1 {
+    animation-delay: 0.05s;
+  }
+  .stagger-2 {
+    animation-delay: 0.1s;
+  }
+  .stagger-3 {
+    animation-delay: 0.15s;
+  }
+  .stagger-4 {
+    animation-delay: 0.2s;
+  }
+  .stagger-5 {
+    animation-delay: 0.25s;
+  }
+}
