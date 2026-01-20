@@ -26,6 +26,7 @@ import {
   DialogFooter,
 } from "@/Components/ui/dialog";
 import { useDashboardData } from "@/Store/contexts/DashboardDataContext";
+import { useSalesFilterOptionsQuery } from "@/API/query/SalesPerformanceQuery";
 import { useSavedFilters, SavedFilter } from "@/Utils/useSavedFilters";
 import { toast } from "sonner";
 
@@ -42,8 +43,26 @@ const periodOptions = [
 ];
 
 const FilterPanel = ({ isOpen, onClose }: FilterPanelProps) => {
-  const { filters, applyFilters, resetFilters, filterOptions } =
-    useDashboardData();
+  const { filters, applyFilters, resetFilters } = useDashboardData();
+  
+  // Fetch filter options from backend API
+  const { data: apiFilterOptions } = useSalesFilterOptionsQuery();
+  
+  // Map API response to filter options format
+  const filterOptions = useMemo(() => ({
+    country: apiFilterOptions?.countries || [],
+    branch: apiFilterOptions?.branches || [],
+    service: apiFilterOptions?.service_types || [],
+    trade: apiFilterOptions?.trades || [],
+    customer: apiFilterOptions?.customers || [],
+    salesman: apiFilterOptions?.salesmen || [],
+    agent: apiFilterOptions?.agents || [],
+    carrier: apiFilterOptions?.carriers || [],
+    tradelane: apiFilterOptions?.tradelanes || [],
+    product: apiFilterOptions?.products || [],
+    tos: apiFilterOptions?.tos_options || [],
+  }), [apiFilterOptions]);
+
   const {
     savedFilters,
     saveCurrentFilters,

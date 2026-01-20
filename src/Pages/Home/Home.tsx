@@ -1,15 +1,11 @@
-import { useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
-import { TrendingUp, DollarSign, PieChart, Clock, Warehouse } from "lucide-react";
-import { Button } from "@/Components/ui/button";
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-} from "@/Components/ui/dialog";
-import { useDashboardData } from "@/Store/contexts/DashboardDataContext";
+  TrendingUp,
+  DollarSign,
+  PieChart,
+  Clock,
+  Warehouse,
+} from "lucide-react";
 import Header from "@/Components/Layout/Header";
 
 const dashboards = [
@@ -54,7 +50,6 @@ const dashboards = [
     path: "/warehouse",
     color: "grey-blue",
   },
- 
 ];
 
 const colorMap: Record<string, string> = {
@@ -71,10 +66,8 @@ const colorMap: Record<string, string> = {
 
 const Home = () => {
   const navigate = useNavigate();
-  // Upload feature removed; data is fetched from API
 
   return (
-    
     <div className="min-h-screen bg-background">
       <Header logoOnly showAdminProfile />
 
@@ -118,8 +111,6 @@ const Home = () => {
           })}
         </div>
       </main>
-
-      {/* Upload UI removed */}
     </div>
   );
 };

@@ -1,5 +1,4 @@
-import { useState, useCallback, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useState, useCallback, useMemo } from "react";
 import {
   Filter,
   RefreshCw,
@@ -51,12 +50,11 @@ import KPITile from "@/Components/Dashboard/KPITile";
 import ModeCard from "@/Components/Dashboard/ModeCard";
 import ChartCard from "@/Components/Dashboard/ChartCard";
 import FilterPanel from "@/Components/Dashboard/FilterPanel";
-import ResetFiltersButton from "@/Components/Common/ResetFiltersButton";
 import Header from "@/Components/Layout/Header";
 import { useDashboardData } from "@/Store/contexts/DashboardDataContext";
 import { Skeleton } from "@/Components/ui/skeleton";
-import { SalesPerformanceService } from "@/API/Services/SalesPerformanceService";
-import { useKPIQuery } from "@/API/query/SalesPerformanceQuery";
+import { KPIFilterPayload } from "@/API/Services/SalesPerformanceService";
+import { useSalesKPIQuery } from "@/API/query/SalesPerformanceQuery";
 import {
   formatLargeNumber,
   formatExactNumber,
@@ -78,18 +76,9 @@ interface ChartTypeState {
 }
 
 const SalesPerformance = () => {
-  const navigate = useNavigate();
   const {
     filters,
     applyFilters,
-    resetFilters,
-    kpiData,
-    kpiSparklineData,
-    kpiSparklineLabels,
-    modeData,
-    chartData,
-    filterOptions,
-    isLoading,
     setChartFilter,
     clearChartFilters,
     activeChartFilters,
@@ -120,24 +109,63 @@ const SalesPerformance = () => {
     if (change === null) return null;
     return Math.round(change * 10) / 10;
   };
-  // Testing SalesPerformanceService
-  useEffect(() => {
-    SalesPerformanceService.getKPISummary("last-6-months").catch(console.error);
-  }, []);
 
-  const { data, isError, error } = useKPIQuery("last-6-months");
-  console.log("KPI data:", data)
+  // Create filter payload from current filters for API call
+  const kpiFilters: KPIFilterPayload = {
+    period: filters.period || "last-6-months",
+    country: filters.country || [],
+    branch: filters.branch || [],
+    service_type: filters.service || [],
+    trade: filters.trade || [],
+    customer_name: filters.customer || [],
+    salesman: filters.salesman || [],
+    agent: filters.agent || [],
+    carrier: filters.carrier || [],
+    tradelane: filters.tradelane || [],
+    product: filters.product || [],
+    tos: filters.tos || [],
+  };
+
+  // Fetch KPI data from backend API
+  const { data: kpiResponse, isLoading, isError, error, refetch } = useSalesKPIQuery(kpiFilters);
+
+  // Display error toast if API call fails
+  if (isError) {
+    console.error("KPI API Error:", error);
+  }
+
+  // Get chart data from backend response
+  const chartData = useMemo(() => {
+    if (!kpiResponse?.chartData) {
+      return {
+        conversionData: [],
+        shipmentTrendData: [],
+        customerTrendData: [],
+        productTrendData: [],
+        topSalesmenData: [],
+        topAgentsData: [],
+        topCustomersData: [],
+        topTradelaneData: [],
+      };
+    }
+    return kpiResponse.chartData;
+  }, [kpiResponse]);
+
   // Get customer keys for stacked bar chart
-  const customerKeys =
-    chartData.customerTrendData.length > 0
-      ? Object.keys(chartData.customerTrendData[0]).filter((k) => k !== "month")
-      : [];
+  const customerKeys = useMemo(() => {
+    if (chartData.customerTrendData.length > 0) {
+      return Object.keys(chartData.customerTrendData[0]).filter((k) => k !== "month");
+    }
+    return [];
+  }, [chartData.customerTrendData]);
 
   // Get product keys for stacked bar chart
-  const productKeys =
-    chartData.productTrendData.length > 0
-      ? Object.keys(chartData.productTrendData[0]).filter((k) => k !== "month")
-      : [];
+  const productKeys = useMemo(() => {
+    if (chartData.productTrendData.length > 0) {
+      return Object.keys(chartData.productTrendData[0]).filter((k) => k !== "month");
+    }
+    return [];
+  }, [chartData.productTrendData]);
 
   const chartColors = [
     "hsl(var(--azure))",
@@ -230,25 +258,6 @@ const SalesPerformance = () => {
     []
   );
 
-  // Helper to get month number from short name
-  const getMonthNum = (shortMonth: string): string => {
-    const monthMap: Record<string, string> = {
-      Jan: "01",
-      Feb: "02",
-      Mar: "03",
-      Apr: "04",
-      May: "05",
-      Jun: "06",
-      Jul: "07",
-      Aug: "08",
-      Sep: "09",
-      Oct: "10",
-      Nov: "11",
-      Dec: "12",
-    };
-    return monthMap[shortMonth] || "01";
-  };
-
   // Dashboard export functionality - uses browser print for full dashboard capture
   const handleDashboardExport = useCallback(
     (format: "png" | "jpeg" | "svg") => {
@@ -279,6 +288,14 @@ const SalesPerformance = () => {
         setChartFilter("month", d.activePayload[0].payload.rawMonth);
       }
     };
+
+    if (!data || data.length === 0) {
+      return (
+        <div className="flex items-center justify-center h-full text-muted-foreground">
+          No data available
+        </div>
+      );
+    }
 
     switch (chartTypes.conversion) {
       case "line":
@@ -549,6 +566,14 @@ const SalesPerformance = () => {
       }
     };
 
+    if (!data || data.length === 0) {
+      return (
+        <div className="flex items-center justify-center h-full text-muted-foreground">
+          No data available
+        </div>
+      );
+    }
+
     switch (chartTypes.shipmentTrend) {
       case "bar":
         return (
@@ -751,6 +776,14 @@ const SalesPerformance = () => {
   // Render Customer-wise Trend chart
   const renderCustomerTrendChart = (height: number = 280) => {
     const data = chartData.customerTrendData;
+
+    if (!data || data.length === 0) {
+      return (
+        <div className="flex items-center justify-center h-full text-muted-foreground">
+          No data available
+        </div>
+      );
+    }
 
     switch (chartTypes.customerTrend) {
       case "line":
@@ -994,6 +1027,14 @@ const SalesPerformance = () => {
   const renderProductTrendChart = (height: number = 280) => {
     const data = chartData.productTrendData;
 
+    if (!data || data.length === 0) {
+      return (
+        <div className="flex items-center justify-center h-full text-muted-foreground">
+          No data available
+        </div>
+      );
+    }
+
     switch (chartTypes.productTrend) {
       case "line":
         return (
@@ -1039,7 +1080,7 @@ const SalesPerformance = () => {
                 onClick={(e) =>
                   e.value &&
                   e.value !== "Others" &&
-                  setChartFilter("product", e.value as string)
+                  setChartFilter("product", e.value)
                 }
               />
               {productKeys.map((key, index) => (
@@ -1100,7 +1141,7 @@ const SalesPerformance = () => {
                 onClick={(e) =>
                   e.value &&
                   e.value !== "Others" &&
-                  setChartFilter("product", e.value as string)
+                  setChartFilter("product", e.value)
                 }
               />
               {productKeys.map((key, index) => (
@@ -1136,7 +1177,8 @@ const SalesPerformance = () => {
                   `${truncateText(name, 10)}: ${formatLargeNumber(value)}`
                 }
                 onClick={(data) =>
-                  data.name !== "Others" && setChartFilter("product", data.name)
+                  data.name !== "Others" &&
+                  setChartFilter("product", data.name)
                 }
               >
                 {totals.map((entry, index) => (
@@ -1205,7 +1247,7 @@ const SalesPerformance = () => {
                 onClick={(e) =>
                   e.value &&
                   e.value !== "Others" &&
-                  setChartFilter("product", e.value as string)
+                  setChartFilter("product", e.value)
                 }
               />
               {productKeys.map((key, index) => (
@@ -1231,45 +1273,41 @@ const SalesPerformance = () => {
     }
   };
 
-  // Render Top 10 Salesman chart
+  // Render Top 10 Salesmen chart
   const renderTopSalesmenChart = (height: number = 280) => {
     const data = chartData.topSalesmenData;
+
+    if (!data || data.length === 0) {
+      return (
+        <div className="flex items-center justify-center h-full text-muted-foreground">
+          No data available
+        </div>
+      );
+    }
 
     switch (chartTypes.topSalesmen) {
       case "line":
         return (
           <ResponsiveContainer width="100%" height={height}>
-            <LineChart data={data} layout="vertical">
+            <LineChart
+              data={data}
+              layout="vertical"
+              margin={{ left: 80, right: 20 }}
+            >
               <CartesianGrid
                 strokeDasharray="3 3"
                 stroke="hsl(var(--border))"
-                horizontal={false}
               />
               <XAxis
                 type="number"
                 tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 11 }}
                 tickFormatter={formatYAxisTick}
-                label={{
-                  value: "Shipments",
-                  position: "insideBottom",
-                  offset: -5,
-                  fill: "hsl(var(--muted-foreground))",
-                  fontSize: 11,
-                }}
               />
               <YAxis
                 dataKey="name"
                 type="category"
-                width={90}
                 tick={CustomYAxisTick}
-                label={{
-                  value: "Salesman",
-                  angle: -90,
-                  position: "insideLeft",
-                  offset: 10,
-                  fill: "hsl(var(--muted-foreground))",
-                  fontSize: 11,
-                }}
+                width={75}
               />
               <RechartsTooltip
                 contentStyle={{
@@ -1277,10 +1315,10 @@ const SalesPerformance = () => {
                   border: "1px solid hsl(var(--border))",
                   borderRadius: "8px",
                 }}
-                formatter={(value: number, name: string) => [
-                  formatExactNumber(value),
-                  name === "shipments" ? "Shipments" : name,
-                ]}
+                formatter={(value: number, name: string) =>
+                  formatTooltipValue(value, name)
+                }
+                labelFormatter={(label) => `Click to filter by ${label}`}
               />
               <Line
                 type="monotone"
@@ -1306,7 +1344,7 @@ const SalesPerformance = () => {
                 label={({ name, shipments }) =>
                   `${truncateText(name, 8)}: ${formatLargeNumber(shipments)}`
                 }
-                onClick={(d) => setChartFilter("salesman", d.name)}
+                onClick={(data) => setChartFilter("salesman", data.name)}
               >
                 {data.map((entry, index) => (
                   <Cell
@@ -1322,10 +1360,9 @@ const SalesPerformance = () => {
                   border: "1px solid hsl(var(--border))",
                   borderRadius: "8px",
                 }}
-                formatter={(value: number, name: string) => [
-                  formatExactNumber(value),
-                  "Shipments",
-                ]}
+                formatter={(value: number, name: string) =>
+                  formatTooltipValue(value, name)
+                }
               />
               <Legend />
             </PieChart>
@@ -1334,11 +1371,14 @@ const SalesPerformance = () => {
       default: // bar
         return (
           <ResponsiveContainer width="100%" height={height}>
-            <BarChart data={data} layout="vertical">
+            <BarChart
+              data={data}
+              layout="vertical"
+              margin={{ left: 80, right: 20 }}
+            >
               <CartesianGrid
                 strokeDasharray="3 3"
                 stroke="hsl(var(--border))"
-                horizontal={false}
               />
               <XAxis
                 type="number"
@@ -1355,15 +1395,15 @@ const SalesPerformance = () => {
               <YAxis
                 dataKey="name"
                 type="category"
-                width={90}
                 tick={CustomYAxisTick}
+                width={75}
                 label={{
                   value: "Salesman",
                   angle: -90,
                   position: "insideLeft",
-                  offset: 10,
                   fill: "hsl(var(--muted-foreground))",
                   fontSize: 11,
+                  dx: -60,
                 }}
               />
               <RechartsTooltip
@@ -1372,10 +1412,9 @@ const SalesPerformance = () => {
                   border: "1px solid hsl(var(--border))",
                   borderRadius: "8px",
                 }}
-                formatter={(value: number, name: string) => [
-                  name === "shipments" ? formatExactNumber(value) : `${value}%`,
-                  name === "shipments" ? "Shipments" : "Conversion",
-                ]}
+                formatter={(value: number, name: string) =>
+                  formatTooltipValue(value, name)
+                }
                 labelFormatter={(label) => `Click to filter by ${label}`}
               />
               <Bar
@@ -1395,41 +1434,37 @@ const SalesPerformance = () => {
   const renderTopAgentsChart = (height: number = 280) => {
     const data = chartData.topAgentsData;
 
+    if (!data || data.length === 0) {
+      return (
+        <div className="flex items-center justify-center h-full text-muted-foreground">
+          No data available
+        </div>
+      );
+    }
+
     switch (chartTypes.topAgents) {
       case "line":
         return (
           <ResponsiveContainer width="100%" height={height}>
-            <LineChart data={data} layout="vertical">
+            <LineChart
+              data={data}
+              layout="vertical"
+              margin={{ left: 80, right: 20 }}
+            >
               <CartesianGrid
                 strokeDasharray="3 3"
                 stroke="hsl(var(--border))"
-                horizontal={false}
               />
               <XAxis
                 type="number"
                 tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 11 }}
                 tickFormatter={formatYAxisTick}
-                label={{
-                  value: "Shipments",
-                  position: "insideBottom",
-                  offset: -5,
-                  fill: "hsl(var(--muted-foreground))",
-                  fontSize: 11,
-                }}
               />
               <YAxis
                 dataKey="name"
                 type="category"
-                width={110}
                 tick={CustomYAxisTick}
-                label={{
-                  value: "Agent",
-                  angle: -90,
-                  position: "insideLeft",
-                  offset: 10,
-                  fill: "hsl(var(--muted-foreground))",
-                  fontSize: 11,
-                }}
+                width={75}
               />
               <RechartsTooltip
                 contentStyle={{
@@ -1437,10 +1472,10 @@ const SalesPerformance = () => {
                   border: "1px solid hsl(var(--border))",
                   borderRadius: "8px",
                 }}
-                formatter={(value: number, name: string) => [
-                  formatExactNumber(value),
-                  name,
-                ]}
+                formatter={(value: number, name: string) =>
+                  formatTooltipValue(value, name)
+                }
+                labelFormatter={(label) => `Click to filter by ${label}`}
               />
               <Line
                 type="monotone"
@@ -1466,7 +1501,7 @@ const SalesPerformance = () => {
                 label={({ name, shipments }) =>
                   `${truncateText(name, 8)}: ${formatLargeNumber(shipments)}`
                 }
-                onClick={(d) => setChartFilter("agent", d.name)}
+                onClick={(data) => setChartFilter("agent", data.name)}
               >
                 {data.map((entry, index) => (
                   <Cell
@@ -1482,10 +1517,9 @@ const SalesPerformance = () => {
                   border: "1px solid hsl(var(--border))",
                   borderRadius: "8px",
                 }}
-                formatter={(value: number, name: string) => [
-                  formatExactNumber(value),
-                  "Shipments",
-                ]}
+                formatter={(value: number, name: string) =>
+                  formatTooltipValue(value, name)
+                }
               />
               <Legend />
             </PieChart>
@@ -1494,11 +1528,14 @@ const SalesPerformance = () => {
       default: // bar
         return (
           <ResponsiveContainer width="100%" height={height}>
-            <BarChart data={data} layout="vertical">
+            <BarChart
+              data={data}
+              layout="vertical"
+              margin={{ left: 80, right: 20 }}
+            >
               <CartesianGrid
                 strokeDasharray="3 3"
                 stroke="hsl(var(--border))"
-                horizontal={false}
               />
               <XAxis
                 type="number"
@@ -1515,15 +1552,15 @@ const SalesPerformance = () => {
               <YAxis
                 dataKey="name"
                 type="category"
-                width={110}
                 tick={CustomYAxisTick}
+                width={75}
                 label={{
                   value: "Agent",
                   angle: -90,
                   position: "insideLeft",
-                  offset: 10,
                   fill: "hsl(var(--muted-foreground))",
                   fontSize: 11,
+                  dx: -60,
                 }}
               />
               <RechartsTooltip
@@ -1532,10 +1569,9 @@ const SalesPerformance = () => {
                   border: "1px solid hsl(var(--border))",
                   borderRadius: "8px",
                 }}
-                formatter={(value: number, name: string) => [
-                  formatExactNumber(value),
-                  name,
-                ]}
+                formatter={(value: number, name: string) =>
+                  formatTooltipValue(value, name)
+                }
                 labelFormatter={(label) => `Click to filter by ${label}`}
               />
               <Bar
@@ -1555,41 +1591,37 @@ const SalesPerformance = () => {
   const renderTopCustomersChart = (height: number = 280) => {
     const data = chartData.topCustomersData;
 
+    if (!data || data.length === 0) {
+      return (
+        <div className="flex items-center justify-center h-full text-muted-foreground">
+          No data available
+        </div>
+      );
+    }
+
     switch (chartTypes.topCustomers) {
       case "line":
         return (
           <ResponsiveContainer width="100%" height={height}>
-            <LineChart data={data} layout="vertical">
+            <LineChart
+              data={data}
+              layout="vertical"
+              margin={{ left: 80, right: 20 }}
+            >
               <CartesianGrid
                 strokeDasharray="3 3"
                 stroke="hsl(var(--border))"
-                horizontal={false}
               />
               <XAxis
                 type="number"
                 tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 11 }}
                 tickFormatter={formatYAxisTick}
-                label={{
-                  value: "Shipments",
-                  position: "insideBottom",
-                  offset: -5,
-                  fill: "hsl(var(--muted-foreground))",
-                  fontSize: 11,
-                }}
               />
               <YAxis
                 dataKey="name"
                 type="category"
-                width={120}
                 tick={CustomYAxisTick}
-                label={{
-                  value: "Customer",
-                  angle: -90,
-                  position: "insideLeft",
-                  offset: 10,
-                  fill: "hsl(var(--muted-foreground))",
-                  fontSize: 11,
-                }}
+                width={75}
               />
               <RechartsTooltip
                 contentStyle={{
@@ -1597,15 +1629,15 @@ const SalesPerformance = () => {
                   border: "1px solid hsl(var(--border))",
                   borderRadius: "8px",
                 }}
-                formatter={(value: number, name: string) => [
-                  formatExactNumber(value),
-                  name,
-                ]}
+                formatter={(value: number, name: string) =>
+                  formatTooltipValue(value, name)
+                }
+                labelFormatter={(label) => `Click to filter by ${label}`}
               />
               <Line
                 type="monotone"
                 dataKey="shipments"
-                stroke="hsl(var(--grey-blue))"
+                stroke="hsl(var(--azure))"
                 strokeWidth={2}
                 dot={{ cursor: "pointer" }}
               />
@@ -1626,7 +1658,7 @@ const SalesPerformance = () => {
                 label={({ name, shipments }) =>
                   `${truncateText(name, 8)}: ${formatLargeNumber(shipments)}`
                 }
-                onClick={(d) => setChartFilter("customer", d.name)}
+                onClick={(data) => setChartFilter("customer", data.name)}
               >
                 {data.map((entry, index) => (
                   <Cell
@@ -1642,10 +1674,9 @@ const SalesPerformance = () => {
                   border: "1px solid hsl(var(--border))",
                   borderRadius: "8px",
                 }}
-                formatter={(value: number, name: string) => [
-                  formatExactNumber(value),
-                  "Shipments",
-                ]}
+                formatter={(value: number, name: string) =>
+                  formatTooltipValue(value, name)
+                }
               />
               <Legend />
             </PieChart>
@@ -1654,11 +1685,14 @@ const SalesPerformance = () => {
       default: // bar
         return (
           <ResponsiveContainer width="100%" height={height}>
-            <BarChart data={data} layout="vertical">
+            <BarChart
+              data={data}
+              layout="vertical"
+              margin={{ left: 80, right: 20 }}
+            >
               <CartesianGrid
                 strokeDasharray="3 3"
                 stroke="hsl(var(--border))"
-                horizontal={false}
               />
               <XAxis
                 type="number"
@@ -1675,16 +1709,8 @@ const SalesPerformance = () => {
               <YAxis
                 dataKey="name"
                 type="category"
-                width={120}
                 tick={CustomYAxisTick}
-                label={{
-                  value: "Customer",
-                  angle: -90,
-                  position: "insideLeft",
-                  offset: 10,
-                  fill: "hsl(var(--muted-foreground))",
-                  fontSize: 11,
-                }}
+                width={75}
               />
               <RechartsTooltip
                 contentStyle={{
@@ -1692,15 +1718,14 @@ const SalesPerformance = () => {
                   border: "1px solid hsl(var(--border))",
                   borderRadius: "8px",
                 }}
-                formatter={(value: number, name: string) => [
-                  formatExactNumber(value),
-                  name,
-                ]}
+                formatter={(value: number, name: string) =>
+                  formatTooltipValue(value, name)
+                }
                 labelFormatter={(label) => `Click to filter by ${label}`}
               />
               <Bar
                 dataKey="shipments"
-                fill="hsl(var(--grey-blue))"
+                fill="hsl(var(--azure))"
                 radius={[0, 4, 4, 0]}
                 cursor="pointer"
                 onClick={(data) => setChartFilter("customer", data.name)}
@@ -1714,6 +1739,14 @@ const SalesPerformance = () => {
   // Render Top 10 Tradelane chart
   const renderTopTradelaneChart = (height: number = 280) => {
     const data = chartData.topTradelaneData;
+
+    if (!data || data.length === 0) {
+      return (
+        <div className="flex items-center justify-center h-full text-muted-foreground">
+          No data available
+        </div>
+      );
+    }
 
     switch (chartTypes.topTradelane) {
       case "line":
@@ -1729,24 +1762,10 @@ const SalesPerformance = () => {
                 tick={CustomXAxisTick}
                 height={70}
                 interval={0}
-                label={{
-                  value: "Tradelane",
-                  position: "insideBottom",
-                  offset: -55,
-                  fill: "hsl(var(--muted-foreground))",
-                  fontSize: 11,
-                }}
               />
               <YAxis
                 tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 11 }}
                 tickFormatter={formatYAxisTick}
-                label={{
-                  value: "Volume (CBM)",
-                  angle: -90,
-                  position: "insideLeft",
-                  fill: "hsl(var(--muted-foreground))",
-                  fontSize: 11,
-                }}
               />
               <RechartsTooltip
                 contentStyle={{
@@ -1755,8 +1774,8 @@ const SalesPerformance = () => {
                   borderRadius: "8px",
                 }}
                 formatter={(value: number, name: string) => [
-                  formatExactNumber(value, name === "volume" ? "CBM" : "KG"),
-                  name,
+                  formatExactNumber(value, "CBM"),
+                  "Volume",
                 ]}
               />
               <Line
@@ -1783,7 +1802,7 @@ const SalesPerformance = () => {
                 label={({ lane, volume }) =>
                   `${truncateText(lane, 8)}: ${formatLargeNumber(volume)}`
                 }
-                onClick={(d) => setChartFilter("tradelane", d.lane)}
+                onClick={(data) => setChartFilter("tradelane", data.lane)}
               >
                 {data.map((entry, index) => (
                   <Cell
@@ -1893,10 +1912,7 @@ const SalesPerformance = () => {
         <Filter size={16} className="mr-2" />
         Filters
       </Button>
-      
-      {/* Reset Filters Button */}
-      <ResetFiltersButton />
-      
+
       {/* Dashboard Export */}
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
@@ -1931,7 +1947,9 @@ const SalesPerformance = () => {
 
       {/* Last Refreshed + Data Source */}
       <div className="w-full max-w-[1600px] mx-auto px-6 py-3 flex justify-between items-center">
-        <p className="text-xs text-muted-foreground">Data Source: API</p>
+        <p className="text-xs text-muted-foreground">
+          Data Source: Backend API
+        </p>
         <Tooltip>
           <TooltipTrigger asChild>
             <div className="flex items-center gap-2 text-xs text-muted-foreground cursor-help">
@@ -2031,7 +2049,7 @@ const SalesPerformance = () => {
 
           {/* ROW 1: Performance Funnel - Enquiries, Converted Shipments, Conversion Rate */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-            {isLoading ? (
+            {isLoading || !kpiResponse ? (
               <>
                 <Skeleton className="h-32 rounded-xl" />
                 <Skeleton className="h-32 rounded-xl" />
@@ -2041,35 +2059,32 @@ const SalesPerformance = () => {
               <>
                 <KPITile
                   title="Total Enquiries"
-                  value={formatLargeNumber(kpiData.current.totalEnquiries)}
-                  rawValue={kpiData.current.totalEnquiries}
-                  change={formatChange(kpiData.changes.totalEnquiries)}
+                  value={formatLargeNumber(kpiResponse.current.totalEnquiries)}
+                  rawValue={kpiResponse.current.totalEnquiries}
+                  change={formatChange(kpiResponse.changes.totalEnquiries)}
                   changeLabel={periodInfo.comparisonLabel}
                   comparisonType={periodInfo.comparisonType}
-                  sparklineData={kpiSparklineData.enquiries}
-                  sparklineLabels={kpiSparklineLabels}
                   sparklineType={periodInfo.sparklineType}
+                  sparklineData={kpiResponse.sparklineData?.enquiries}
                 />
                 <KPITile
                   title="Converted Shipments"
-                  value={formatLargeNumber(kpiData.current.convertedShipments)}
-                  rawValue={kpiData.current.convertedShipments}
-                  change={formatChange(kpiData.changes.convertedShipments)}
+                  value={formatLargeNumber(kpiResponse.current.convertedShipments)}
+                  rawValue={kpiResponse.current.convertedShipments}
+                  change={formatChange(kpiResponse.changes.convertedShipments)}
                   changeLabel={periodInfo.comparisonLabel}
                   comparisonType={periodInfo.comparisonType}
-                  sparklineData={kpiSparklineData.convertedShipments}
-                  sparklineLabels={kpiSparklineLabels}
                   sparklineType={periodInfo.sparklineType}
+                  sparklineData={kpiResponse.sparklineData?.convertedShipments}
                 />
                 <KPITile
                   title="Conversion Rate"
-                  value={`${kpiData.current.conversionRate.toFixed(1)}%`}
-                  change={formatChange(kpiData.changes.conversionRate)}
+                  value={`${kpiResponse.current.conversionRate.toFixed(1)}%`}
+                  change={formatChange(kpiResponse.changes.conversionRate)}
                   changeLabel={periodInfo.comparisonLabel}
                   comparisonType={periodInfo.comparisonType}
-                  sparklineData={kpiSparklineData.conversionRate}
-                  sparklineLabels={kpiSparklineLabels}
                   sparklineType={periodInfo.sparklineType}
+                  sparklineData={kpiResponse.sparklineData?.conversionRate}
                 />
               </>
             )}
@@ -2077,7 +2092,7 @@ const SalesPerformance = () => {
 
           {/* ROW 2: Mode-wise Operational KPIs - AIR, OCEAN LCL, OCEAN FCL */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {isLoading ? (
+            {isLoading || !kpiResponse ? (
               <>
                 <Skeleton className="h-40 rounded-xl" />
                 <Skeleton className="h-40 rounded-xl" />
@@ -2088,45 +2103,31 @@ const SalesPerformance = () => {
                 <ModeCard
                   title="Air"
                   icon={<Plane size={20} />}
-                  shipments={modeData.air.shipments}
-                  volume={modeData.air.volume}
-                  weight={modeData.air.weight}
-                  change={modeData.air.change}
-                  sparklineData={
-                    modeData.air.sparklineData.length > 0
-                      ? modeData.air.sparklineData
-                      : undefined
-                  }
+                  shipments={kpiResponse.modeData.air.shipments}
+                  volume={kpiResponse.modeData.air.volume}
+                  weight={kpiResponse.modeData.air.weight}
+                  change={kpiResponse.modeData.air.change ?? undefined}
                   sparklineType={periodInfo.sparklineType}
                   comparisonLabel={periodInfo.comparisonLabel}
                 />
                 <ModeCard
                   title="Ocean LCL"
                   icon={<Ship size={20} />}
-                  shipments={modeData.lcl.shipments}
-                  volume={modeData.lcl.volume}
-                  weight={modeData.lcl.weight}
-                  change={modeData.lcl.change}
-                  sparklineData={
-                    modeData.lcl.sparklineData.length > 0
-                      ? modeData.lcl.sparklineData
-                      : undefined
-                  }
+                  shipments={kpiResponse.modeData.lcl.shipments}
+                  volume={kpiResponse.modeData.lcl.volume}
+                  weight={kpiResponse.modeData.lcl.weight}
+                  change={kpiResponse.modeData.lcl.change ?? undefined}
                   sparklineType={periodInfo.sparklineType}
                   comparisonLabel={periodInfo.comparisonLabel}
                 />
                 <ModeCard
                   title="Ocean FCL"
                   icon={<Container size={20} />}
-                  shipments={modeData.fcl.shipments}
-                  volume={modeData.fcl.volume}
-                  weight={modeData.fcl.weight}
-                  change={modeData.fcl.change}
-                  sparklineData={
-                    modeData.fcl.sparklineData.length > 0
-                      ? modeData.fcl.sparklineData
-                      : undefined
-                  }
+                  shipments={kpiResponse.modeData.fcl.shipments}
+                  volume={kpiResponse.modeData.fcl.volume}
+                  weight={kpiResponse.modeData.fcl.weight}
+                  teus={kpiResponse.modeData.fcl.teus}
+                  change={kpiResponse.modeData.fcl.change ?? undefined}
                   sparklineType={periodInfo.sparklineType}
                   comparisonLabel={periodInfo.comparisonLabel}
                 />
